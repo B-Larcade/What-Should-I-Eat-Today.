@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>What Should I Eat Today?</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="title">
+      <h1 id="title">What Should I Eat Today?</h1>
+    </div>
+    <div class="button">
+      <button onclick="getRandomRecipe()">I'M HUNGRY!!!</button>
+    </div>
+    <div class="pdfbutton">
+      <button id="pdf" onclick="downloadPDF()">PDF Download</button>
+    </div>
+
+    <div class="diet">
+      <label for="diet">Choose a dietary preference:</label>
+      <select id="diet">
+        <option value="">None</option>
+        <option value="vegetarian">Vegetarian</option>
+        <option value="vegan">Vegan</option>
+        <option value="gluten free">Gluten Free</option>
+        <option value="ketogenic">Ketogenic</option>
+      </select>
+    </div>
+    <div class="recipe">
+      <div id="recipe" style="margin-top: 20px"></div>
+    </div>
+
+    <script>
+      let currentRecipe = null;
+
+      async function getRandomRecipe() {
+        const diet = document.getElementById("diet").value;
+
+        const url = `https://api.spoonacular.com/recipes/random?number=1&tags=${encodeURIComponent(
+          diet
+        )}&apiKey=${apiKey}`;
+
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          const recipe = data.recipes[0];
+          currentRecipe = recipe;
+
+          const ingredientsList = recipe.extendedIngredients
+            .map((ing) => `<li>${ing.original}</li>`)
+            .join("");
+
+          document.getElementById("recipe").innerHTML = `
+          <h2>${recipe.title}</h2>
+          <div class="recipeimage">
+            <img src="${recipe.image}" alt="${recipe.title}" width="300"/>
+          </div>
+          <div class='ingredients'>
+            <h3>Ingredients:</h3>
+            <ul>${ingredientsList}</ul>
+          </div>
+          <div class="readyin">
+            <p><strong>Ready in:</strong> ${recipe.readyInMinutes} minutes</p>
+          </div>
+          <div class="servings">
+            <p><strong>Servings:</strong> ${recipe.servings}</p>
+          </div>
+          <div class="instructions">
+            <h3>Instructions:</h3>
+            <p>${recipe.instructions || "No instructions available."}</p>
+          </div>
+        `;
+        } catch (error) {
+          document.getElementById(
+            "recipe"
+          ).innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+          currentRecipe = null;
+        }
+      }
+
+      function downloadPDF() {
+        if (!currentRecipe) {
+          alert("Please fetch a recipe first!");
+          return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Set up document
+        doc.setFontSize(20);
+        doc.text(currentRecipe.title, 10, 20);
+
+        doc.setFontSize(14);
+        doc.text("Ingredients:", 10, 30);
+
+        // Split ingredients for proper formatting
+        const ingredients = currentRecipe.extendedIngredients
+          .map((ing) => `- ${ing.original}`)
+          .join("\n");
+        doc.text(ingredients, 10, 40, { maxWidth: 180 });
+
+        // Calculate position after ingredients
+        const ingredientsHeight = doc.getTextDimensions(ingredients, {
+          maxWidth: 180,
+        }).h;
+        let yPosition = 40 + ingredientsHeight + 10;
+
+        doc.text(
+          `Ready in: ${currentRecipe.readyInMinutes} minutes`,
+          10,
+          yPosition
+        );
+        yPosition += 10;
+        doc.text(`Servings: ${currentRecipe.servings}`, 10, yPosition);
+        yPosition += 15;
+
+        doc.text("Instructions:", 10, yPosition);
+        yPosition += 10;
+
+        // Handle instructions with proper wrapping
+        const instructions =
+          currentRecipe.instructions || "No instructions available.";
+        doc.text(instructions, 10, yPosition, { maxWidth: 180 });
+
+        // Save the PDF
+        doc.save(`${currentRecipe.title}.pdf`);
+      }
+    </script>
+    <script src="API.js"></script>
+  </body>
+</html>
